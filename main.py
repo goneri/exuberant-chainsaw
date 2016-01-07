@@ -22,7 +22,7 @@ def get_floating_ip(nova):
     for floating_ip in nova.floating_ips.list():
         if floating_ip.instance_id is None:
             if floating_ip.fixed_ip is None:
-                return floating_ip.id
+                return floating_ip
     print("No more Floating IP")
 
 # Authentication with Keystone
@@ -69,7 +69,7 @@ server = nova.servers.create('bob',
 for i in range(0, 120):
     print(server.status)
     if server.status == 'ACTIVE':
-        print("Server started in =~ %s seconds." % i)
+        print("Server started in about %s seconds." % i)
         break
     if server.status == 'ERROR':
         print("nova boot has failed")
@@ -78,6 +78,19 @@ for i in range(0, 120):
     if i % 10 == 0:
         server = nova.servers.get(server.id)
     time.sleep(1)
-server.add_floating_ip(get_floating_ip(nova))
+floating_ip = get_floating_ip(nova)
+server.add_floating_ip(floating_ip.id)
 server.add_security_group('ssh')
 server.add_security_group('rhos-mirror-user')
+
+ips = nova.servers.ips(server)
+
+print(ips)
+import paramiko
+client = paramiko.SSHClient()
+client.load_system_host_keys()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+client.connect(floating_ip.ip, 22, 'cloud-user')
+stdin, stdout, stderr = client.exec_command('ls')
+print(stdout.read())
+client.close()
